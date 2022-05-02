@@ -1,0 +1,3 @@
+[submodule "overcooked_ai_delft"]
+	path = overcooked_ai_delft
+	url = https://github.com/aenneas/overcooked_ai_delft
