@@ -30,6 +30,10 @@ def get_pettingzoo_mpe():
     from interactive_agents.envs.pettingzoo_mpe import PettingZooMPE
     return PettingZooMPE
 
+def get_overcooked():
+    from interactive_agents.envs.overcooked_wrapper import OvercookedWrapper
+    return OvercookedWrapper
+
 
 ENVS = {
     "coordination": get_coordination_game,
@@ -38,6 +42,7 @@ ENVS = {
     "memory": get_memory_game,
     "repeated": get_repeated_game,
     "mpe": get_pettingzoo_mpe,
+    "overcooked": get_overcooked
 }
 
 

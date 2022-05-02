@@ -9,40 +9,57 @@ from torch.optim import Adam
 
 from interactive_agents.sampling import MultiBatch
 
-
 class QNet(nn.Module):
-    """Dense Q-Network with optional deuling architecture"""
-
-    def __init__(self, obs_space, action_space, hidden_sizes, deuling):
+    """ The Qnet with CNN for Overcooked """
+    def __init__(self, obs_space, action_space, hidden_sizes, dueling):
         super(QNet, self).__init__()
-        self._deuling = deuling
+        self._dueling = dueling
+        self.convl1 = nn.Conv2d(in_channels=26, out_channels=25, kernel_size=(5, 5), padding="same")
+        self.convl2 = nn.Conv2d(in_channels=25, out_channels=25, kernel_size=(3, 3), padding="same")
+        self.convl3 = nn.Conv2d(in_channels=25, out_channels=25, kernel_size=(3, 3), padding="valid")
 
         # NOTE: Separate variables needed for Torchscript
-        # HACK FOR FLATTEND OVERCOOKED GRID. FIX THIS PROPERLY LATER.
-        if len(obs_space.shape) == 3:
-            input_size = obs_space.shape[0] * obs_space.shape[1] * obs_space.shape[2]
-        else:
-            input_size = obs_space.shape[0]
         output_size = action_space.n
 
-        layers = []
-        last_size = input_size
+        layers = [self.convl1, nn.LeakyReLU(), self.convl2, nn.LeakyReLU(), self.convl3, nn.LeakyReLU(), nn.Flatten()]
+
+        #So that we don't have to manually set the output of the conv layers after flatten.
+        #layers.append(nn.LazyLinear(hidden_sizes[0]))
+        #last_size = hidden_sizes[0]
+
+        #layers.append(nn.LazyLinear(hidden_sizes[0]))
+        #last_size = hidden_sizes[0]
+        """
+                for size in hidden_sizes[1:]:
+            layers.append(nn.Linear(last_size, size))
+            layers.append(nn.ReLU())
+            last_size = size
+        """
+        last_size = 150
         for size in hidden_sizes:
             layers.append(nn.Linear(last_size, size))
             layers.append(nn.ReLU())
             last_size = size
 
+
         self._hidden = nn.Sequential(*layers)
         self._q_function = nn.Linear(last_size, output_size)
 
-        if deuling:
+        if dueling:
             self._value_function = nn.Linear(last_size, 1)
 
     def forward(self, obs):
-        output = self._hidden(obs)
+        if obs.dim() == 5:
+            batch_size, timesteps, C, H, W = obs.size()
+            c_in = obs.view(batch_size * timesteps, C, H, W)
+            c_out = self._hidden(c_in)
+            output = c_out.view(batch_size, timesteps, -1)
+        else:
+            output = self._hidden(obs)
+
         Q = self._q_function(output)
 
-        if self._deuling:
+        if self._dueling:
             V = self._value_function(output)
             Q += V - Q.mean(-1, keepdim=True)
 
@@ -58,10 +75,10 @@ class QPolicy(nn.Module):
 
     def forward(self, obs, state: Optional[torch.Tensor]):
         return self._model(obs).argmax(-1), state
-    
+
     @torch.jit.export
-    def initial_state(self, batch_size: int=1):
-        return torch.empty((batch_size, 0)) # NOTE: Return empty tensor for Torchscript
+    def initial_state(self, batch_size: int = 1):
+        return torch.empty((batch_size, 0))  # NOTE: Return empty tensor for Torchscript
 
 
 class ReplayBuffer:
@@ -78,7 +95,7 @@ class ReplayBuffer:
                 self._buffer.append(episode)
             else:
                 self._buffer[self._index] = episode
-            
+
             self._index = (self._index + 1) % self._capacity
 
     def sample(self, batch_size):
@@ -110,7 +127,7 @@ class DQNAgent:
 
     def __init__(self, policy):
         self._policy = policy
-    
+
     def act(self, obs):
         return self._policy.act(obs), {}
 
@@ -138,7 +155,7 @@ class DQNPolicy:
         self._q_network.load_state_dict(state)
 
 
-class DQN:
+class CNNDQN:
 
     def __init__(self, observation_space, action_space, config):
         self._observation_space = observation_space
@@ -200,12 +217,12 @@ class DQN:
             loss = self._loss(*batch).mean()
             loss.backward()
             self._optimizer.step()
-        
+        print(loss)
         return {}  # TODO: Add statistics
 
     def make_policy(self, eval=False):
-        return DQNPolicy(self._observation_space, self._action_space, 
-            self._hidden_sizes, self._dueling, 0 if eval else self._epsilon)
+        return DQNPolicy(self._observation_space, self._action_space,
+                         self._hidden_sizes, self._dueling, 0 if eval else self._epsilon)
 
     def get_update(self, eval=False):
         return self._online_network.state_dict()

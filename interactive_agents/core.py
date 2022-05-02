@@ -32,7 +32,16 @@ def print_error(error):
 
 
 def run_trail(path, trainer_cls, config, stop, seed):
-    path = os.path.join(path, f"seed_{seed}")  
+    """
+
+    Args:
+        path:
+        trainer_cls:
+        config:
+        stop: A dictionary of different statistics so that if a training statistic reaches stop[key], training is complete
+        seed:
+    """
+    path = os.path.join(path, f"seed_{seed}")
     os.makedirs(path)
 
     # Reseed python, numpy, and pytorch
@@ -113,9 +122,9 @@ def run_experiment(path, name, config, pool):
     return trials
 
 
-def run_experiments(experiments, path, num_cpus=1):
+def run_experiments(experiments, path, num_cpus=4):
 
-    # Limit CPU paralellism
+    # Limit CPU paralellism (intra-op)
     torch.set_num_threads(num_cpus)
 
     pool = Pool(num_cpus)

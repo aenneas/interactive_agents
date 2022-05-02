@@ -1,0 +1,25 @@
+dqn_simple:
+  stop:
+    total_iterations: 100
+  trainer: independent
+  num_seeds: 2
+  config:
+    max_steps: 400
+    iteration_episodes: 200
+    eval_episodes: 100
+    env: overcooked
+    env_config:
+      layout_name: "cramped_room"
+      horizon: 400
+    learner: CNNDQN
+    learner_config:
+      batch_size: 50
+      batches_per_episode: 0.25
+      sync_interval: 100
+      epsilon: 0.2
+      gamma: 0.99
+      beta: 0.5
+      lr: 0.001
+      hiddens: [32, 32]
+      dueling: True
+      buffer_size: 1024
